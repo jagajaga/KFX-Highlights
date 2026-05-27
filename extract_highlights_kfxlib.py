@@ -12,13 +12,15 @@ import sys
 from pathlib import Path
 from html import escape
 
-# Allow importing kfxlib either from the extracted folder or the bundled zip
+# Make the bundled Calibre KFX Input plugin importable as kfxlib.
+# The directory layout is: <repo>/KFX Input/kfxlib/...
+# Falls back to the legacy .zip and to a kfxlib_extracted/ folder for
+# back-compat with older clones.
 base_dir = Path(__file__).parent
-extracted = base_dir / "kfxlib_extracted"
-if extracted.exists():
-    sys.path.insert(0, str(extracted))
-else:
-    sys.path.insert(0, str(base_dir / "KFX Input.zip"))
+for candidate in (base_dir / "KFX Input", base_dir / "kfxlib_extracted", base_dir / "KFX Input.zip"):
+    if candidate.exists():
+        sys.path.insert(0, str(candidate))
+        break
 from kfxlib import yj_book
 from kfxlib.ion import IonSymbol
 from kfxlib.yj_container import YJFragment
