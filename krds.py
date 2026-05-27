@@ -297,6 +297,15 @@ class KindleReaderDataStore(object):
             if len(val):
                 obj["unknown3"] = val.pop(0)  # Additional field that may contain 'INVALID' or other values
 
+            # Amazon keeps adding trailing fields to font.prefs in newer Kindle
+            # firmware. Drain anything left so the parser doesn't crash with
+            # "Excess values found for structure font.prefs: [0, 0, 1, 0]".
+            extra = []
+            while len(val):
+                extra.append(val.pop(0))
+            if extra:
+                obj["extra"] = extra
+
         elif name == "purchase.state.data":
             obj["state"] = val.pop(0)           # string
             obj["time"] = datetime.datetime.fromtimestamp(val.pop(0) / 1000.0).isoformat()
