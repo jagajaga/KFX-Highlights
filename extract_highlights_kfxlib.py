@@ -6,6 +6,7 @@ repository) to decode the KFX container. It converts the book into a JSON
 structure with content and position information and then maps the annotation
 positions directly onto that content.
 """
+import argparse
 import json
 import sys
 from pathlib import Path
@@ -234,13 +235,56 @@ def generate_html(title, authors, items, output_path, year=""):
         f.write("\n".join(html_parts))
 
 
-def main():
-    if len(sys.argv) != 3:
-        print("Usage: python extract_highlights_kfxlib.py <annotations.json> <book.kfx>")
-        sys.exit(1)
+def generate_markdown(title, authors, items, output_path, year=""):
+    """Write highlights as Markdown, one section per chapter, quotes as blockquotes."""
+    lines = [f"# {title}"]
+    if authors:
+        lines.append(f"_{', '.join(authors)}_")
+    if year:
+        lines.append(f"*{year}*")
+    lines.append("")
 
-    json_file = sys.argv[1]
-    kfx_file = sys.argv[2]
+    current_section = None
+    for item in items:
+        section = item.get("section")
+        if section and section != current_section:
+            lines.append("")
+            lines.append(f"## {section}")
+            lines.append("")
+            current_section = section
+
+        meta_parts = []
+        if item.get("chapter"):
+            meta_parts.append(item["chapter"])
+        if item.get("page"):
+            meta_parts.append(f"Page {item['page']}")
+        meta_str = " — " + " > ".join(meta_parts) if meta_parts else ""
+
+        if item.get("type") == "note":
+            lines.append(f"**Note{meta_str}**")
+        else:
+            lines.append(f"**Highlight{meta_str}**")
+        lines.append("")
+        for txt_line in (item.get("text", "") or "").splitlines() or [item.get("text", "")]:
+            lines.append(f"> {txt_line}")
+        lines.append("")
+
+    Path(output_path).write_text("\n".join(lines).rstrip() + "\n", encoding="utf-8")
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Extract highlight text from a KFX book using a .yjr JSON file.")
+    parser.add_argument("annotations_json", help="Path to the .yjr.json file produced by krds.py")
+    parser.add_argument("book_kfx", help="Path to the .kfx book file")
+    parser.add_argument(
+        "--markdown", "-m",
+        action="store_true",
+        help="Emit a .highlights.md file (Markdown grouped by chapter) instead of .highlights.html",
+    )
+    args = parser.parse_args()
+
+    json_file = args.annotations_json
+    kfx_file = args.book_kfx
 
     with open(json_file, "r", encoding="utf-8") as f:
         data = json.load(f)
@@ -317,12 +361,20 @@ def main():
                 "type": "note",
             })
 
-    output_html = Path(kfx_file).with_suffix(".highlights.html")
     year = ""
     if getattr(meta, "issue_date", None):
         year = str(meta.issue_date).split("-")[0]
-    generate_html(meta.title or Path(kfx_file).stem, meta.authors or [], highlights, output_html, year)
-    print(f"\nSaved HTML highlights to {output_html}")
+
+    title = meta.title or Path(kfx_file).stem
+    authors = meta.authors or []
+    if args.markdown:
+        output_path = Path(kfx_file).with_suffix(".highlights.md")
+        generate_markdown(title, authors, highlights, output_path, year)
+        print(f"\nSaved Markdown highlights to {output_path}")
+    else:
+        output_path = Path(kfx_file).with_suffix(".highlights.html")
+        generate_html(title, authors, highlights, output_path, year)
+        print(f"\nSaved HTML highlights to {output_path}")
 
 
 if __name__ == "__main__":

@@ -1,18 +1,27 @@
 #!/usr/bin/env python3
 """Convert a YJR annotations file and extract highlights from a KFX book."""
 
+import argparse
 import subprocess
 import sys
 from pathlib import Path
 
 
 def main():
-    if len(sys.argv) != 3:
-        print("Usage: python extract_highlights.py <book.kfx> <annotations.yjr>")
-        sys.exit(1)
+    parser = argparse.ArgumentParser(
+        description="Extract Kindle highlights from a KFX book using its .yjr sidecar.",
+    )
+    parser.add_argument("book_kfx", help="Path to the .kfx book file")
+    parser.add_argument("annotations_yjr", help="Path to the .yjr annotations file (inside the book's .sdr/ folder)")
+    parser.add_argument(
+        "--markdown", "-m",
+        action="store_true",
+        help="Emit a .highlights.md file (Markdown grouped by chapter) instead of .highlights.html",
+    )
+    args = parser.parse_args()
 
-    kfx_file = Path(sys.argv[1])
-    yjr_file = Path(sys.argv[2])
+    kfx_file = Path(args.book_kfx)
+    yjr_file = Path(args.annotations_yjr)
 
     if not kfx_file.is_file():
         print(f"KFX file not found: {kfx_file}")
@@ -31,10 +40,10 @@ def main():
 
     # Extract highlights using the generated JSON and KFX file
     extract_script = script_dir / "extract_highlights_kfxlib.py"
-    subprocess.run(
-        [sys.executable, str(extract_script), str(json_file), str(kfx_file)],
-        check=True,
-    )
+    cmd = [sys.executable, str(extract_script), str(json_file), str(kfx_file)]
+    if args.markdown:
+        cmd.append("--markdown")
+    subprocess.run(cmd, check=True)
 
 
 if __name__ == "__main__":
